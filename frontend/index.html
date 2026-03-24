@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dungeon Backend</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0f; }
+    canvas { display: block; }
+    #loading {
+      position: fixed; inset: 0; background: #0a0a0f;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: 'Courier New', monospace; color: #8a8a9a; z-index: 100;
+      transition: opacity 0.5s;
+    }
+    #loading h1 { font-size: 2rem; color: #c4a76c; margin-bottom: 1rem; letter-spacing: 0.2em; }
+    #loading p { font-size: 0.9rem; }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    #hud {
+      position: fixed; top: 20px; left: 20px;
+      font-family: 'Courier New', monospace; color: #c4a76c;
+      pointer-events: none; z-index: 10;
+    }
+    #hud .stat { margin-bottom: 6px; font-size: 0.85rem; }
+    #hud .hp-bar { width: 200px; height: 8px; background: #1a1a2e; border: 1px solid #333; border-radius: 4px; overflow: hidden; }
+    #hud .hp-fill { height: 100%; background: #4a9; transition: width 0.3s; }
+    #hud .hp-fill.low { background: #c44; }
+    #status-msg {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+      font-family: 'Courier New', monospace; color: #aaa; font-size: 0.85rem;
+      pointer-events: none; z-index: 10; text-align: center;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    #status-msg.visible { opacity: 1; }
+    #minimap {
+      position: fixed; bottom: 20px; right: 20px; width: 160px; height: 160px;
+      background: rgba(10,10,15,0.85); border: 1px solid #333; border-radius: 4px;
+      z-index: 10;
+    }
+    #crosshair {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 20px; height: 20px; pointer-events: none; z-index: 10;
+    }
+    #crosshair::before, #crosshair::after {
+      content: ''; position: absolute; background: rgba(196,167,108,0.5);
+    }
+    #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+    #crosshair::after { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <h1>DUNGEON BACKEND</h1>
+    <p id="load-status">Connecting to backend...</p>
+  </div>
+
+  <div id="hud">
+    <div class="stat" id="player-name">Adventurer</div>
+    <div class="stat">
+      HP <span id="hp-text">100/100</span>
+      <div class="hp-bar"><div class="hp-fill" id="hp-fill" style="width:100%"></div></div>
+    </div>
+    <div class="stat">LVL <span id="player-level">1</span> · XP <span id="player-xp">0</span></div>
+    <div class="stat">Room: <span id="room-name">???</span></div>
+  </div>
+
+  <div id="crosshair"></div>
+  <div id="status-msg"></div>
+  <canvas id="minimap"></canvas>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
