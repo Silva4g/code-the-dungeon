@@ -40,14 +40,13 @@ export const playerRoutes = Router();
  * TODO: Implement this endpoint
  */
 playerRoutes.get('/player/:id', (req, res) => {
-  // Hint: use req.params.id to get the player ID
-  // Hint: use getPlayer(id) to look up the player
-  // Hint: if player is null, respond with 404
+  const player = getPlayer(req.params.id);
 
-  res.status(501).json({
-    error: 'Not implemented yet!',
-    hint: 'Open backend/src/routes/player.js and implement GET /player/:id',
-  });
+  if (!player) {
+    return res.status(404).json({ error: 'Player not found' });
+  }
+
+  res.json(player);
 });
 
 /**
@@ -72,13 +71,13 @@ playerRoutes.get('/player/:id', (req, res) => {
  * TODO: Implement this endpoint
  */
 playerRoutes.post('/player/create', (req, res) => {
-  // Hint: use req.body.name to get the name
-  // Hint: validate that name exists and is a string
-  // Hint: use createPlayer(id, name) to create the player
-  // Hint: respond with 201 status for "created"
+  const { name } = req.body;
 
-  res.status(501).json({
-    error: 'Not implemented yet!',
-    hint: 'Open backend/src/routes/player.js and implement POST /player/create',
-  });
+  if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    return res.status(400).json({ error: 'Name is required' });
+  }
+
+  const id = `player-${Date.now()}`;
+  const player = createPlayer(id, name.trim());
+  res.status(201).json(player);
 });

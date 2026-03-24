@@ -1,0 +1,855 @@
+{
+  "info": {
+    "name": "Dungeon Backend API",
+    "description": "Collection completa para validar todas as fases do Dungeon Backend.\n\nVariáveis:\n- {{base_url}}: URL base da API (default: http://localhost:3001/api)\n- {{player_id}}: ID do player criado (setado automaticamente)\n- {{player_name}}: Nome do player\n\nOrdem de execução recomendada:\n1. Health Check\n2. Phase 1 (Player + Room)\n3. Phase 2 (Combat)\n4. Phase 3 (Inventory)\n5. Phase 4 (World)\n\nUse o Collection Runner para rodar tudo de uma vez.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3001/api" },
+    { "key": "player_id", "value": "" },
+    { "key": "player_name", "value": "TestHero" }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Response has status ok', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql('ok');",
+                  "});",
+                  "",
+                  "pm.test('Response has phase number', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.phase).to.be.a('number');",
+                  "});",
+                  "",
+                  "pm.test('Response time < 200ms', () => {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Phase 1 — Hello Dungeon",
+      "item": [
+        {
+          "name": "POST /player/create — Create player",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/player/create",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{player_name}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "",
+                  "pm.test('Response has player fields', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('id');",
+                  "  pm.expect(json).to.have.property('name');",
+                  "  pm.expect(json).to.have.property('hp');",
+                  "  pm.expect(json).to.have.property('max_hp');",
+                  "  pm.expect(json).to.have.property('atk');",
+                  "  pm.expect(json).to.have.property('def');",
+                  "  pm.expect(json).to.have.property('level');",
+                  "  pm.expect(json).to.have.property('xp');",
+                  "});",
+                  "",
+                  "pm.test('Player name matches input', () => {",
+                  "  pm.expect(pm.response.json().name).to.eql(pm.variables.get('player_name'));",
+                  "});",
+                  "",
+                  "pm.test('Player starts with 100 HP', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.hp).to.eql(100);",
+                  "  pm.expect(json.max_hp).to.eql(100);",
+                  "});",
+                  "",
+                  "pm.test('Player starts at level 1 with 0 XP', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.level).to.eql(1);",
+                  "  pm.expect(json.xp).to.eql(0);",
+                  "});",
+                  "",
+                  "// Save player_id for subsequent requests",
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('player_id', json.id);",
+                  "  console.log('Saved player_id:', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /player/create — Missing name (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/player/create",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "",
+                  "pm.test('Response has error message', () => {",
+                  "  pm.expect(pm.response.json()).to.have.property('error');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /player/create — Empty name (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/player/create",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"   \"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 for whitespace-only name', () => pm.response.to.have.status(400));",
+                  "",
+                  "pm.test('Response has error message', () => {",
+                  "  pm.expect(pm.response.json()).to.have.property('error');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /player/:id — Get created player",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/player/{{player_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Returns correct player', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.id).to.eql(pm.collectionVariables.get('player_id'));",
+                  "  pm.expect(json.name).to.eql(pm.variables.get('player_name'));",
+                  "});",
+                  "",
+                  "pm.test('Player has all required fields', () => {",
+                  "  const json = pm.response.json();",
+                  "  const fields = ['id','name','hp','max_hp','atk','def','level','xp'];",
+                  "  fields.forEach(f => pm.expect(json).to.have.property(f));",
+                  "});",
+                  "",
+                  "pm.test('HP and stats are numbers', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.hp).to.be.a('number');",
+                  "  pm.expect(json.atk).to.be.a('number');",
+                  "  pm.expect(json.def).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /player/:id — Unknown player (404)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/player/nonexistent-player-999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "",
+                  "pm.test('Response has error field', () => {",
+                  "  pm.expect(pm.response.json()).to.have.property('error');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /room/room-1 — Entrance Hall",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/room/room-1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Room has correct id and name', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.id).to.eql('room-1');",
+                  "  pm.expect(json.name).to.eql('Entrance Hall');",
+                  "});",
+                  "",
+                  "pm.test('Room has biome', () => {",
+                  "  pm.expect(pm.response.json().biome).to.eql('catacombs');",
+                  "});",
+                  "",
+                  "pm.test('Room has dimensions', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.width).to.be.a('number').and.above(0);",
+                  "  pm.expect(json.depth).to.be.a('number').and.above(0);",
+                  "});",
+                  "",
+                  "pm.test('Room has exits array', () => {",
+                  "  const exits = pm.response.json().exits;",
+                  "  pm.expect(exits).to.be.an('array');",
+                  "  pm.expect(exits.length).to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test('Exit has required fields', () => {",
+                  "  const exit = pm.response.json().exits[0];",
+                  "  pm.expect(exit).to.have.property('id');",
+                  "  pm.expect(exit).to.have.property('direction');",
+                  "  pm.expect(exit).to.have.property('target_room');",
+                  "  pm.expect(exit).to.have.property('locked');",
+                  "});",
+                  "",
+                  "pm.test('Room has enemies array', () => {",
+                  "  pm.expect(pm.response.json().enemies).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Room has loot array', () => {",
+                  "  const loot = pm.response.json().loot;",
+                  "  pm.expect(loot).to.be.an('array');",
+                  "  pm.expect(loot.length).to.eql(1);",
+                  "});",
+                  "",
+                  "pm.test('Loot item has correct structure', () => {",
+                  "  const item = pm.response.json().loot[0];",
+                  "  pm.expect(item.id).to.eql('loot-1');",
+                  "  pm.expect(item.name).to.eql('Rusty Sword');",
+                  "  pm.expect(item.type).to.eql('weapon');",
+                  "  pm.expect(item.rarity).to.eql('common');",
+                  "});",
+                  "",
+                  "pm.test('Room has map coordinates', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('map_x');",
+                  "  pm.expect(json).to.have.property('map_y');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /room/room-2 — Room with enemies",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/room/room-2"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Room has 2 enemies', () => {",
+                  "  const enemies = pm.response.json().enemies;",
+                  "  pm.expect(enemies).to.be.an('array').with.lengthOf(2);",
+                  "});",
+                  "",
+                  "pm.test('Enemy has combat stats', () => {",
+                  "  const enemy = pm.response.json().enemies[0];",
+                  "  pm.expect(enemy).to.have.property('id');",
+                  "  pm.expect(enemy).to.have.property('name');",
+                  "  pm.expect(enemy).to.have.property('hp');",
+                  "  pm.expect(enemy).to.have.property('max_hp');",
+                  "  pm.expect(enemy).to.have.property('atk');",
+                  "  pm.expect(enemy).to.have.property('def');",
+                  "  pm.expect(enemy).to.have.property('xp');",
+                  "});",
+                  "",
+                  "pm.test('Room has 3 exits including locked door', () => {",
+                  "  const exits = pm.response.json().exits;",
+                  "  pm.expect(exits).to.have.lengthOf(3);",
+                  "  const locked = exits.find(e => e.locked === true);",
+                  "  pm.expect(locked).to.not.be.undefined;",
+                  "  pm.expect(locked.direction).to.eql('north');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /room/room-3 — Room with objects",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/room/room-3"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test('Room has chest object', () => {",
+                  "  const objects = pm.response.json().objects;",
+                  "  pm.expect(objects).to.be.an('array').with.lengthOf(1);",
+                  "  pm.expect(objects[0].type).to.eql('chest');",
+                  "});",
+                  "",
+                  "pm.test('Chest contains Iron Key', () => {",
+                  "  const chest = pm.response.json().objects[0];",
+                  "  pm.expect(chest.contains).to.be.an('array');",
+                  "  pm.expect(chest.contains[0].name).to.eql('Iron Key');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /room/fake-room — Not found (404)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/room/fake-room-999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "",
+                  "pm.test('Response has error field', () => {",
+                  "  pm.expect(pm.response.json()).to.have.property('error');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Phase 2 — Combat",
+      "item": [
+        {
+          "name": "POST /combat/attack — Attack enemy",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/combat/attack",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"player_id\": \"{{player_id}}\",\n  \"target_id\": \"enemy-1\",\n  \"weapon_id\": null\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "",
+                  "if (status === 501) {",
+                  "  pm.test('Phase 2 not implemented yet (501)', () => {",
+                  "    pm.expect(status).to.eql(501);",
+                  "    console.log('⏭️  Skip — implement POST /combat/attack');",
+                  "  });",
+                  "} else {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "  pm.test('Response has damage field', () => {",
+                  "    pm.expect(pm.response.json()).to.have.property('damage');",
+                  "    pm.expect(pm.response.json().damage).to.be.a('number').and.above(0);",
+                  "  });",
+                  "",
+                  "  pm.test('Response has is_crit boolean', () => {",
+                  "    pm.expect(pm.response.json().is_crit).to.be.a('boolean');",
+                  "  });",
+                  "",
+                  "  pm.test('Response has target HP', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('target_hp');",
+                  "    pm.expect(json).to.have.property('target_max_hp');",
+                  "    pm.expect(json.target_hp).to.be.at.most(json.target_max_hp);",
+                  "  });",
+                  "",
+                  "  pm.test('Response has killed boolean', () => {",
+                  "    pm.expect(pm.response.json().killed).to.be.a('boolean');",
+                  "  });",
+                  "",
+                  "  pm.test('Response has message', () => {",
+                  "    pm.expect(pm.response.json().message).to.be.a('string');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /combat/attack — Invalid target (400/404)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/combat/attack",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"player_id\": \"{{player_id}}\",\n  \"target_id\": \"nonexistent-enemy\",\n  \"weapon_id\": null\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 501) {",
+                  "  pm.test('Not implemented yet', () => true);",
+                  "} else {",
+                  "  pm.test('Returns error for invalid target', () => {",
+                  "    pm.expect(status).to.be.oneOf([400, 404]);",
+                  "    pm.expect(pm.response.json()).to.have.property('error');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /combat/defend — Defend action",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/combat/defend",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"player_id\": \"{{player_id}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 501) {",
+                  "  pm.test('Not implemented yet', () => true);",
+                  "} else {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "  pm.test('Response confirms defending', () => {",
+                  "    pm.expect(pm.response.json().defending).to.eql(true);",
+                  "  });",
+                  "",
+                  "  pm.test('Response has defense bonus', () => {",
+                  "    pm.expect(pm.response.json().defense_bonus).to.be.a('number').and.above(0);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Phase 3 — Inventory & Loot",
+      "item": [
+        {
+          "name": "GET /inventory/:playerId — List all items",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/inventory/{{player_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 501) {",
+                  "  pm.test('Not implemented yet', () => true);",
+                  "} else {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "  pm.test('Response has items array', () => {",
+                  "    pm.expect(pm.response.json().items).to.be.an('array');",
+                  "  });",
+                  "",
+                  "  pm.test('Response has count', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('count');",
+                  "    pm.expect(json.count).to.eql(json.items.length);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /inventory/:playerId?type=weapon — Filter by type",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/inventory/{{player_id}}?type=weapon"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 501) {",
+                  "  pm.test('Not implemented yet', () => true);",
+                  "} else {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "  pm.test('All items are weapons', () => {",
+                  "    const items = pm.response.json().items;",
+                  "    items.forEach(item => pm.expect(item.type).to.eql('weapon'));",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /loot/pickup — Pick up item",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/loot/pickup",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"player_id\": \"{{player_id}}\",\n  \"loot_id\": \"loot-1\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 501) {",
+                  "  pm.test('Not implemented yet', () => true);",
+                  "} else {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "  pm.test('Item was picked up', () => {",
+                  "    pm.expect(pm.response.json().picked_up).to.eql(true);",
+                  "  });",
+                  "",
+                  "  pm.test('Response has item data', () => {",
+                  "    pm.expect(pm.response.json().item).to.have.property('name');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /inventory/equip — Equip weapon",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/inventory/equip",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"player_id\": \"{{player_id}}\",\n  \"item_id\": \"loot-1\",\n  \"slot\": \"main_hand\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 501) {",
+                  "  pm.test('Not implemented yet', () => true);",
+                  "} else {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "  pm.test('Item was equipped', () => {",
+                  "    pm.expect(pm.response.json().equipped).to.eql(true);",
+                  "  });",
+                  "",
+                  "  pm.test('Slot matches request', () => {",
+                  "    pm.expect(pm.response.json().slot).to.eql('main_hand');",
+                  "  });",
+                  "",
+                  "  pm.test('Player ATK increased', () => {",
+                  "    pm.expect(pm.response.json().player_atk).to.be.above(5);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /inventory/use — Use health potion",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/inventory/use",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"player_id\": \"{{player_id}}\",\n  \"item_id\": \"loot-2\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 501) {",
+                  "  pm.test('Not implemented yet', () => true);",
+                  "} else {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "  pm.test('Item was used', () => {",
+                  "    pm.expect(pm.response.json().used).to.eql(true);",
+                  "  });",
+                  "",
+                  "  pm.test('Response has HP values', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('player_hp');",
+                  "    pm.expect(json).to.have.property('player_max_hp');",
+                  "    pm.expect(json.player_hp).to.be.at.most(json.player_max_hp);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /inventory/use — Item not found (404)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/inventory/use",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"player_id\": \"{{player_id}}\",\n  \"item_id\": \"nonexistent-item\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 501) {",
+                  "  pm.test('Not implemented yet', () => true);",
+                  "} else {",
+                  "  pm.test('Returns error for missing item', () => {",
+                  "    pm.expect(status).to.be.oneOf([400, 404]);",
+                  "    pm.expect(pm.response.json()).to.have.property('error');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Phase 4 — World Interaction",
+      "item": [
+        {
+          "name": "POST /room/room-3/interact — Open chest",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/room/room-3/interact",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"object_id\": \"obj-1\",\n  \"player_id\": \"{{player_id}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 501) {",
+                  "  pm.test('Not implemented yet', () => true);",
+                  "} else {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "  pm.test('Response has message', () => {",
+                  "    pm.expect(pm.response.json().message).to.be.a('string');",
+                  "  });",
+                  "",
+                  "  pm.test('Response has items from chest', () => {",
+                  "    pm.expect(pm.response.json().items).to.be.an('array');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /room/room-4/interact — Pull lever",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/room/room-4/interact",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"object_id\": \"obj-2\",\n  \"player_id\": \"{{player_id}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 501) {",
+                  "  pm.test('Not implemented yet', () => true);",
+                  "} else {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "  pm.test('Lever has effect', () => {",
+                  "    pm.expect(pm.response.json()).to.have.property('effect');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /room/room-2/unlock — Unlock door with key",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/room/room-2/unlock",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"door_id\": \"exit-2-north\",\n  \"player_id\": \"{{player_id}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 501) {",
+                  "  pm.test('Not implemented yet', () => true);",
+                  "} else if (status === 200) {",
+                  "  pm.test('Door was unlocked', () => {",
+                  "    pm.expect(pm.response.json().unlocked).to.eql(true);",
+                  "  });",
+                  "",
+                  "  pm.test('Key was consumed', () => {",
+                  "    pm.expect(pm.response.json().key_consumed).to.eql(true);",
+                  "  });",
+                  "} else {",
+                  "  pm.test('Error if player has no key', () => {",
+                  "    pm.expect(pm.response.json()).to.have.property('error');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /map/discovered — Fog of war",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/map/discovered?player_id={{player_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 501) {",
+                  "  pm.test('Not implemented yet', () => true);",
+                  "} else {",
+                  "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "  pm.test('Response has rooms array', () => {",
+                  "    pm.expect(pm.response.json().rooms).to.be.an('array');",
+                  "  });",
+                  "",
+                  "  pm.test('Each room has map coords', () => {",
+                  "    pm.response.json().rooms.forEach(room => {",
+                  "      pm.expect(room).to.have.property('map_x');",
+                  "      pm.expect(room).to.have.property('map_y');",
+                  "    });",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

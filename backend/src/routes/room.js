@@ -51,16 +51,17 @@ export const roomRoutes = Router();
  * TODO: Implement this endpoint
  */
 roomRoutes.get('/room/:id', (req, res) => {
-  // Hint: use req.params.id to get the room ID
-  // Hint: look up the room in the ROOMS object
-  // Hint: ROOMS['room-1'] gives you the data for room-1
-  // Hint: if the room doesn't exist, return 404
+  const room = ROOMS[req.params.id];
 
-  // BONUS (Phase 4): merge with getRoomState() to reflect
-  // changes like dead enemies or opened chests
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
 
-  res.status(501).json({
-    error: 'Not implemented yet!',
-    hint: 'Open backend/src/routes/room.js and implement GET /room/:id',
-  });
+  // Merge with room state if it exists (dead enemies, opened chests)
+  const state = getRoomState(req.params.id);
+  if (state) {
+    return res.json({ ...room, ...state });
+  }
+
+  res.json(room);
 });
